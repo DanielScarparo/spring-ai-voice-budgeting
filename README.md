@@ -5,11 +5,12 @@
 ![Spring AI](https://img.shields.io/badge/Spring_AI-1.0.0--M4-6DB33F?style=for-the-badge&logo=spring)
 ![Groq](https://img.shields.io/badge/Groq_Cloud-Llama_3.3_70B-f38020?style=for-the-badge)
 ![MySQL](https://img.shields.io/badge/MySQL-JPA%20%2F%20Hibernate-4479A1?style=for-the-badge&logo=mysql)
+![Docker Compose](https://img.shields.io/badge/Docker%20Compose-2496ED?style=for-the-badge&logo=docker&logoColor=white)
 ![Clean Architecture](https://img.shields.io/badge/Architecture-Clean%20%2F%20Hexagonal-blue?style=for-the-badge)
 
 Uma API REST inteligente para controle financeiro pessoal que permite registrar gastos através de **mensagens de voz (áudio)** ou texto, além de gerar relatórios e somatórias automáticas conversando diretamente com uma Inteligência Artificial.
 
-O projeto aplica estritamente os conceitos de **Arquitetura Limpa (Clean Architecture)** e **Domain-Driven Design (DDD)**, integrando o ecossistema do **Spring Boot** com modelos de linguagem de ponta via **Spring AI**.
+O projeto aplica estritamente os conceitos de **Arquitetura Limpa (Clean Architecture)** e **Domain-Driven Design (DDD)**, integrando o ecossistema do **Spring Boot** com modelos de linguagem de ponta via **Spring AI**, rodando sobre uma infraestrutura conteinerizada com **Docker Compose**.
 
 ---
 
@@ -19,6 +20,7 @@ O projeto aplica estritamente os conceitos de **Arquitetura Limpa (Clean Archite
 * 🧠 **Tool Calling (Chamada de Ferramentas Java via IA):** O modelo de IA analisa a intenção do usuário e aciona autonomamente métodos Java anotados com `@Tool` para consultar ou persistir dados.
 * 📊 **Cálculo Acumulado por Categoria:** Nova funcionalidade implementada com `@Query` customizada no Spring Data JPA e tratamento com `COALESCE` para retorno seguro de somatórios diretamente na base de dados.
 * 💬 **Endpoint Híbrido (Áudio e Texto):** Flexibilidade total para interagir com a aplicação via microfone ou chat de texto puro.
+* 🐳 **Infraestrutura Conteinerizada:** Banco de dados MySQL isolado e pré-configurado via Docker Compose para execução instantânea do ambiente local.
 
 ---
 
@@ -71,29 +73,57 @@ Porém, para evitar o desperdício de banda e o consumo desnecessário de cotas 
 
 ### Pré-requisitos
 * **Java SDK 21** ou superior
-* **MySQL** rodando localmente (ou via Docker) na porta `3306` com um banco chamado `budgeting`
+* **Docker** e **Docker Compose** instalados
 * Chave de API gratuita da **[Groq Cloud](https://console.groq.com/)**
 
-### 1. Configurar a Variável de Ambiente
-No seu terminal ou IDE (IntelliJ / Eclipse), defina a variável de ambiente com a sua chave da Groq:
+### 1. Subir o Banco de Dados com Docker Compose
+Para evitar a necessidade de instalar e configurar um servidor MySQL localmente, o projeto já conta com uma infraestrutura conteinerizada. 
+
+O arquivo `docker-compose.yml` na raiz do projeto está estruturado da seguinte forma:
+
+    services:
+      db:
+        image: mysql:8.0
+        container_name: budgeting-mysql
+        restart: always
+        environment:
+          MYSQL_DATABASE: budgeting
+          MYSQL_ROOT_PASSWORD: root
+        ports:
+          - "3306:3306"
+        volumes:
+          - mysql_data:/var/lib/mysql
+
+    volumes:
+      mysql_data:
+
+Para iniciar o contêiner do banco de dados em segundo plano, abra o terminal na pasta do projeto e execute:
+
+    docker compose up -d
+
+### 2. Configurar a Variável de Ambiente
+Defina a variável de ambiente no seu sistema ou na sua IDE com a chave gerada na Groq:
 
     export GROQ_API_KEY="gsk_sua_chave_aqui..."
 
-### 2. Configurações do `application.properties`
-Certifique-se de que o arquivo `src/main/resources/application.properties` está configurado para o modelo 70B e com o fallback de voz ativado:
+### 3. Configurações do `application.properties`
+Certifique-se de que o arquivo `src/main/resources/application.properties` está apontando para o banco local rodando no Docker e configurado para o modelo 70B:
 
     spring.application.name=budgeting
+    spring.datasource.url=jdbc:mysql://localhost:3306/budgeting
+    spring.datasource.username=root
+    spring.datasource.password=root
     spring.jpa.hibernate.ddl-auto=update
     spring.jpa.show-sql=true
 
     # IA Principal / Tool Calling (Llama 3.3 70B na Groq)
-    spring.ai.openai.chat.base-url=[https://api.groq.com/openai](https://api.groq.com/openai)
+    spring.ai.openai.chat.base-url=https://api.groq.com/openai
     spring.ai.openai.chat.api-key=${GROQ_API_KEY}
     spring.ai.openai.chat.options.model=llama-3.3-70b-versatile
     spring.ai.openai.chat.options.temperature=0.2
 
     # Transcrição de Áudio STT (Whisper Large v3 na Groq)
-    spring.ai.openai.audio.transcription.base-url=[https://api.groq.com/openai](https://api.groq.com/openai)
+    spring.ai.openai.audio.transcription.base-url=https://api.groq.com/openai
     spring.ai.openai.audio.transcription.api-key=${GROQ_API_KEY}
     spring.ai.openai.audio.transcription.options.model=whisper-large-v3
     spring.ai.openai.audio.transcription.options.language=pt
@@ -103,7 +133,8 @@ Certifique-se de que o arquivo `src/main/resources/application.properties` está
     spring.ai.openai.audio.speech.enabled=false
     spring.ai.openai.api-key=${GROQ_API_KEY}
 
-### 3. Executar a Aplicação
+### 4. Executar a Aplicação
+Com o Docker rodando o MySQL, inicie o Spring Boot com o comando:
 
     ./gradlew bootRun
 
